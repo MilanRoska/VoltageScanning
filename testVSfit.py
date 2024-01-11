@@ -5,7 +5,7 @@ Created on Wed Jan 10 15:09:12 2024
 @author: m.roska
 """
 #%%
-import VSfit
+from VSfit import VSfit
 import pandas as pd
 #%%
 # Load the CSV file into a DataFrame
@@ -16,4 +16,4 @@ TimingData = df['xVS']
 SignalData = df['yVS']
 
 #%%
-VSResult, VSResultR2 = VSfit.VSfit(SignalData, TimingData, plotVS=True,FitUsed = "Gauss")
+VSResult, VSResultR2 = VSfit(SignalData, TimingData, plotVS=True)
