@@ -185,32 +185,32 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
 #%%Main Function for Correlating Calcualting Sensitivities and generating Conversion functuin
 
 #Input vs_result and CalResult Data and Names for Calibration compounds
-def generate_calibration_curve(CalVSValues, CalSensValues, plotCalCurve=False, ConvertedTo="U2"):
+def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=False, converted_to="U2"):
     #set boundary conditions 
     low_bounds = (0,-np.inf,-np.inf)
     up_bounds = (np.inf,np.inf,0)
     #perform Sigm fit
-    parameters, covariance = curve_fit(sigmodial, CalVSValues, CalSensValues, maxfev=10000, bounds= (low_bounds,up_bounds))
+    parameters, covariance = curve_fit(sigmodial, cal_vs_values, cal_sens_values, maxfev=10000, bounds= (low_bounds,up_bounds))
     #unpack parameters
     fit_y_max, fit_center, fit_slope = parameters
     #calculate fit curve
-    fitSensData = sigmodial(CalVSValues, fit_y_max, fit_center, fit_slope)
+    fit_sens_data = sigmodial(cal_vs_values, fit_y_max, fit_center, fit_slope)
     #r2 value
     #r-squared value between data and fit curve
-    CalCurver2 = r2_score(CalSensValues,fitSensData)
+    cal_curve_r2 = r2_score(cal_sens_values,fit_sens_data)
     #plot
-    if plotCalCurve == True:
+    if plot_cal_curve == True:
         #generate plot x dataaxis Dataset
-        PlotFitVSValues = np.linspace(0, max(CalVSValues)+1.1,1000)
-        PlotFitSensData = sigmodial(PlotFitVSValues,fit_y_max, fit_center, fit_slope)
+        plot_fit_vs_values = np.linspace(0, max(cal_vs_values)+1.1,1000)
+        Plotfit_sens_data = sigmodial(plot_fit_vs_values,fit_y_max, fit_center, fit_slope)
         fig, ax = plt.subplots(figsize=(5.5,3.44))
-        ax.scatter(CalVSValues, CalSensValues, c = orange, edgecolor =  'None' ,s=60,zorder=2,label = 'cal. compounds')
-        ax.plot(PlotFitVSValues, PlotFitSensData, label= 'sigm. fit (r$^{2}=$'+str(round(CalCurver2,3))+')',color =purple, linewidth = 1, zorder=3)
+        ax.scatter(cal_vs_values, cal_sens_values, c = orange, edgecolor =  'None' ,s=60,zorder=2,label = 'cal. compounds')
+        ax.plot(plot_fit_vs_values, Plotfit_sens_data, label= 'sigm. fit (r$^{2}=$'+str(round(cal_curve_r2,3))+')',color =purple, linewidth = 1, zorder=3)
         standard_plot_parameters(ax)
         plt.ylabel('Sensitivity')
-        if ConvertedTo == "U2":
+        if converted_to == "U2":
             plt.xlabel('$U^{2}$ [$V^{2}$]')
         plt.rcParams['legend.fontsize'] = 10
         plt.legend(loc='best',handlelength=1)
     #output fit parameters 
-    return parameters, CalCurver2 
+    return parameters, cal_curve_r2 

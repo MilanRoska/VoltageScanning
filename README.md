@@ -7,7 +7,6 @@ This includes sensitivities from calibration measurements, as well as VS results
 from VSfit import 
 
 vs_fit
-
 Converts timing data into (default) U^2 (Voltage^2) data
 fits the dataset 
 calcualtes the U^2 value at 50% of the starting signal
