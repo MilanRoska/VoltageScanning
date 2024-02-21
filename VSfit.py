@@ -70,7 +70,7 @@ def sigmodial(x,y_max,center,slope):
 
 #%%Main Function for VS fitting
 
-def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunning_freq=None, StepSize=2, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, plot_vs=False):
+def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, plot_vs=False):
     
     # Set default value for tunning_freq
     if tunning_freq is None:
@@ -123,7 +123,7 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
             low_bounds = (0,0,0,0,0)
             up_bounds = (np.inf,np.inf,np.inf,np.inf,np.inf)
             #perform double_sigmoid fit
-            parameters, covariance = curve_fit(double_sigmoid, timing_dataConverted, signal_data_normalized, maxfev=max_fit_iterations, bounds= (low_bounds,up_bounds))
+            parameters, covariance = curve_fit(double_sigmoid, timing_dataConverted, signal_data_normalized, p0=init_fit_parameters, maxfev=max_fit_iterations, bounds= (low_bounds,up_bounds))
             #unpack parameters
             fit_y_max,fit_fall_center, fit_fall_slop, rise_center, rise_slope = parameters  
             #calculate fit curve
@@ -145,7 +145,7 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
             low_bounds = (-np.inf,-np.inf,-np.inf,-np.inf)
             up_bounds = (np.inf,np.inf,np.inf,np.inf)
             #perform double_sigmoid fit
-            parameters, covariance = curve_fit(gauss_amp, timing_dataConverted, signal_data_normalized, maxfev=max_fit_iterations, bounds= (low_bounds,up_bounds))
+            parameters, covariance = curve_fit(gauss_amp, timing_dataConverted, signal_data_normalized, p0=init_fit_parameters, maxfev=max_fit_iterations, bounds= (low_bounds,up_bounds))
             #unpack parameters
             fit_y_0, fit_x_center, fit_w, fit_area = parameters  
             #calculate fit curve
@@ -180,7 +180,7 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
             plt.xlabel('$U^{2}$ [$V^{2}$]')
         
     #output vs_result
-    return vs_result, vs_result_r2
+    return vs_result, vs_result_r2, parameters
 
 #%%Main Function for Correlating Calcualting Sensitivities and generating Conversion functuin
 
