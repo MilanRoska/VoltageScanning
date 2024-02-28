@@ -185,10 +185,11 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
 #%%Main Function for Correlating Calcualting Sensitivities and generating Conversion functuin
 
 #Input vs_result and CalResult Data and Names for Calibration compounds
-def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=False, converted_to="U2"):
+#fit parameters in order: y_max, center, slope
+def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=False, converted_to="U2", low_bounds_input = (0,-np.inf,-np.inf), up_bounds_input = (np.inf,np.inf,0)):
     #set boundary conditions 
-    low_bounds = (0,-np.inf,-np.inf)
-    up_bounds = (np.inf,np.inf,0)
+    low_bounds = low_bounds_input
+    up_bounds = up_bounds_input
     #perform Sigm fit
     parameters, covariance = curve_fit(sigmodial, cal_vs_values, cal_sens_values, maxfev=10000, bounds= (low_bounds,up_bounds))
     #unpack parameters
