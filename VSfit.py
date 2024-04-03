@@ -40,7 +40,7 @@ def standard_plot_parameters(ax):
     plt.style.use('classic')
     return
 
-def double_sigmoid (x,y_max,fall_center,fall_slope,rise_center,rise_slope):
+def double_sigmoid(x,y_max,fall_center,fall_slope,rise_center,rise_slope):
     y = (y_max)/((1+(fall_center*np.exp(fall_slope*x)))*(1+(rise_center/np.exp(rise_slope*x))))
     return y
 
@@ -70,7 +70,7 @@ def sigmodial(x,y_max,center,slope):
 
 #%%Main Function for VS fitting
 
-def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, plot_vs=False):
+def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, plot_vs=False):
     
     # Set default value for tunning_freq
     if tunning_freq is None:
@@ -101,11 +101,11 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
     #set timing Data to Start at 0
     timing_data = timing_data-min(timing_data)
     
-    #convert time (x) to U2 or Ekin
-    valid_convert_to_values = ["U2", "Ekin"]
-    if convert_to == "U2":
-    # Code for "U2" conversion
-     timing_dataConverted = (timing_data*StepSize*slowness_correction_factor)**2
+    #convert time (x) to Volt or Ekin
+    valid_convert_to_values = ["Volt", "Ekin"]
+    if convert_to == "Volt":
+    # Code for "Volt" conversion
+     timing_dataConverted = (timing_data*StepSize*slowness_correction_factor*tunning_freq)
     elif convert_to == "Ekin":
     # Code for "Ekin" conversion
         raise NotImplementedError("Not yet implemented in package.")
@@ -121,6 +121,7 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
         if fit_used == "double_sigmoid":
             #set boundary conditions 
             low_bounds = (0,0,0,0,0)
+            #low_bounds = (-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
             up_bounds = (np.inf,np.inf,np.inf,np.inf,np.inf)
             #perform double_sigmoid fit
             parameters, covariance = curve_fit(double_sigmoid, timing_dataConverted, signal_data_normalized, p0=init_fit_parameters, maxfev=max_fit_iterations, bounds= (low_bounds,up_bounds))
@@ -135,10 +136,10 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
             int_start = double_sigmoid(0,fit_y_max,fit_fall_center, fit_fall_slop, rise_center, rise_slope) 
             #get Intensity at at half of int_start
             int_half = int_start/2
-            #get u2_half from int_half value using minimized scalar residual method
+            #get Volt_half from int_half value using minimized scalar residual method
             # Perform the optimization to find the best x value
-            u2_half = double_sigmoid_find_root_scalar(int_half,fit_y_max,fit_fall_center, fit_fall_slop, rise_center, rise_slope)
-            vs_result = u2_half
+            Volt_half = double_sigmoid_find_root_scalar(int_half,fit_y_max,fit_fall_center, fit_fall_slop, rise_center, rise_slope)
+            vs_result = Volt_half
             vs_result_r2 = r2
         elif fit_used == "Gauss":   
             #set boundary conditions 
@@ -176,8 +177,8 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
         ax.scatter(vs_result,int_half,color =purple_very_dark,label='50% ('+convert_to+'='+str(round(vs_result,2))+')',s=100, marker = 'h',zorder=3)       
         standard_plot_parameters(ax)
         plt.ylabel('Intensity [AU]')
-        if convert_to == "U2":
-            plt.xlabel('$U^{2}$ [$V^{2}$]')
+        if convert_to == "Volt":
+            plt.xlabel('$U$ [$V$]')
         
     #output vs_result
     return vs_result, vs_result_r2, parameters
@@ -186,7 +187,7 @@ def vs_fit(signal_data, timing_data, convert_to="U2", acquisition_freq=10, tunni
 
 #Input vs_result and CalResult Data and Names for Calibration compounds
 #fit parameters in order: y_max, center, slope
-def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=False, converted_to="U2", low_bounds_input = (0,-np.inf,-np.inf), up_bounds_input = (np.inf,np.inf,0)):
+def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=False, converted_to="Volt", low_bounds_input = (0,-np.inf,-np.inf), up_bounds_input = (np.inf,np.inf,0)):
     #set boundary conditions 
     low_bounds = low_bounds_input
     up_bounds = up_bounds_input
@@ -209,7 +210,7 @@ def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=Fa
         ax.plot(plot_fit_vs_values, Plotfit_sens_data, label= 'sigm. fit (r$^{2}=$'+str(round(cal_curve_r2,3))+')',color =purple, linewidth = 1, zorder=3)
         standard_plot_parameters(ax)
         plt.ylabel('Sensitivity')
-        if converted_to == "U2":
+        if converted_to == "Volt":
             plt.xlabel('$U^{2}$ [$V^{2}$]')
         plt.rcParams['legend.fontsize'] = 10
         plt.legend(loc='best',handlelength=1)
