@@ -22,6 +22,8 @@ purple_dark = (122/255 , 8/255 , 145/255 , 100/100)
 purple_very_dark = (61/255 , 4/255 , 73/255 , 100/100)
 
 #%%Support Fnctions
+
+
 def standard_plot_parameters(ax):
     plt.tight_layout()
     plt.rcParams['axes.titlesize'] = 20
@@ -39,6 +41,7 @@ def standard_plot_parameters(ax):
     #plt.style.use('dark_background')
     plt.style.use('classic')
     return
+
 
 def double_sigmoid(x,y_max,fall_center,fall_slope,rise_center,rise_slope):
     y = (y_max)/((1+(fall_center*np.exp(fall_slope*x)))*(1+(rise_center/np.exp(rise_slope*x))))
@@ -70,8 +73,7 @@ def sigmodial(x,y_max,center,slope):
 
 #%%Main Function for VS fitting
 
-def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, plot_vs=False):
-    
+def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, plot_vs=False, plot_title = 'formula not specified'):
     # Set default value for tunning_freq
     if tunning_freq is None:
         tunning_freq = acquisition_freq
@@ -96,7 +98,7 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
     #check if Nr of Datapoints matches Expected from VS param -> error
     expected_data_points = max_voltage/StepSize/slowness_correction_factor
     if expected_data_points != timing_data.shape[0]:
-        raise ValueError(f"More Data Points than expected from VS setting. {expected_data_points} expected, {timing_data.shape[0]} found")
+        print(f"More Data Points than expected from VS setting. {expected_data_points} expected, {timing_data.shape[0]} found")
         
     #set timing Data to Start at 0
     timing_data = timing_data-min(timing_data)
@@ -179,7 +181,7 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
         plt.ylabel('Intensity [AU]')
         if convert_to == "Volt":
             plt.xlabel('$U$ [$V$]')
-        
+        plt.title(plot_title)
     #output vs_result
     return vs_result, vs_result_r2, parameters
 
@@ -211,7 +213,7 @@ def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=Fa
         standard_plot_parameters(ax)
         plt.ylabel('Sensitivity')
         if converted_to == "Volt":
-            plt.xlabel('$U^{2}$ [$V^{2}$]')
+            plt.xlabel('$U$ [$V$]')
         plt.rcParams['legend.fontsize'] = 10
         plt.legend(loc='best',handlelength=1)
     #output fit parameters 
