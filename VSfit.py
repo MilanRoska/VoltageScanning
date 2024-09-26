@@ -73,7 +73,7 @@ def sigmodial(x,y_max,center,slope):
 
 #%%Main Function for VS fitting
 
-def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, plot_vs=False, plot_title = 'formula not specified'):
+def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, inversion_method="root_scalar", plot_vs=False, plot_title = 'formula not specified'):
     # Set default value for tunning_freq
     if tunning_freq is None:
         tunning_freq = acquisition_freq
@@ -139,9 +139,26 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
             #get Intensity at at half of int_start
             int_half = int_start/2
             #get Volt_half from int_half value using minimized scalar residual method
-            # Perform the optimization to find the best x value
-            Volt_half = double_sigmoid_find_root_scalar(int_half,fit_y_max,fit_fall_center, fit_fall_slop, rise_center, rise_slope)
-            vs_result = Volt_half
+            if inversion_method == "root_scalar":
+                # Perform the optimization to find the best x value
+                Volt_half = double_sigmoid_find_root_scalar(int_half,fit_y_max,fit_fall_center, fit_fall_slop, rise_center, rise_slope)
+                vs_result = Volt_half
+            # alternative inversion method that does not need root scalar analysis (currently slower in tests)
+            if inversion_method == "min_of_abs_of_shift_down":
+                # shift fit so that dV50 leis on x crossing, take absolute of that, take minimum of that
+                # Step 2: Subtract the global offset
+                fit_signal_data_offset = fit_signal_data - int_half
+                # Step 3: Take the absolute value
+                fit_signal_data_abs = np.abs(fit_signal_data_offset)
+                # Step 4: Filter data where x > 0
+                positive_x_indices = np.where(timing_dataConverted > 0)
+                if len(positive_x_indices[0]) == 0:
+                    return None  # No positive y-values found
+                # Step 5: Get the x-value where y is the minimum (for y > 0)
+                min_index = positive_x_indices[0][np.argmin(fit_signal_data_abs[positive_x_indices])]
+                min_x = timing_dataConverted[min_index]
+                vs_result = min_x   
+                
             vs_result_r2 = r2
         elif fit_used == "Gauss":   
             #set boundary conditions 
