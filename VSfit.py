@@ -71,6 +71,11 @@ def sigmodial(x,y_max,center,slope):
     y =  y_max / (1 + np.exp((x - center) / slope))
     return y
 
+def sigmodial_x_err_prop(x,y_max,center,slope, x_err):
+    y_err = -((y_max * np.exp((x - center) / slope)) / (slope*(1 + np.exp((x - center) / slope))**2))
+
+    return y_err
+
 # %%Main Function for VS fitting
 
 def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, low_bounds = (0,0,0,0,0), up_bounds = (np.inf,np.inf,np.inf,np.inf,np.inf), inversion_method="root_scalar", plot_vs=False, plot_title = 'formula not specified'):
