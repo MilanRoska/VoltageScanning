@@ -8,8 +8,10 @@ Created on Fri Jan  5 14:12:30 2024
 #%%packages
 import numpy as np
 from scipy.optimize import curve_fit
+from scipy import odr
 from sklearn.metrics import r2_score
 from scipy.optimize import root_scalar
+from scipy.optimize import newton
 import matplotlib.pyplot as plt
 #%%custom colors
 orange = (244/255 , 153/255 , 62/255 , 100/100)
@@ -47,17 +49,38 @@ def double_sigmoid(x,y_max,fall_center,fall_slope,rise_center,rise_slope):
     y = (y_max)/((1+(fall_center*np.exp(fall_slope*x)))*(1+(rise_center/np.exp(rise_slope*x))))
     return y
 
-def double_sigmoid_find_root_scalar(y_target, y_max, fall_center, fall_slope, rise_center, rise_slope, x_guess=50):
+def double_sigmoid_find_root_scalar(y_target, y_max, fall_center, fall_slope, rise_center, rise_slope, x_guess=40):
+    """
+    Finds the x-value such that double_sigmoid(x) = y_target.
+    
+    Tries the bracketing method first. If that fails, it falls back to Newton's method.
+    """
     # Define the objective function to find the root of
-    objective_function = lambda x: double_sigmoid(x, y_max, fall_center, fall_slope, rise_center, rise_slope) - y_target
+    def objective_function(x):
+        return double_sigmoid(x, y_max, fall_center, fall_slope, rise_center, rise_slope) - y_target
 
-    # Find the root using root_scalar
-    result = root_scalar(objective_function, bracket=[0, 200], x0=x_guess)
+    # Check function values at bracket edges
+    f_a = objective_function(0)
+    f_b = objective_function(300)
 
-    if result.converged:
-        return result.root
-    else:
-        raise RuntimeError("Failed to find x for the given y.")
+    if np.sign(f_a) != np.sign(f_b):
+        # Bracketing method: Root must be within [0, 300]
+        try:
+            result = root_scalar(objective_function, bracket=[0, 300], x0=x_guess)
+            if result.converged:
+                return result.root
+        except ValueError:
+            pass  # Fall back to Newton's method if bracketing fails
+
+    # If no sign change in the bracket, try Newton's method
+    try:
+        root = newton(objective_function, x_guess)
+        return root
+    except RuntimeError as e:
+        raise RuntimeError(f"Failed to find x for the given y_target using both methods: {e}")
+
+    # If all fails, raise an error
+    raise RuntimeError("Failed to find x for the given y_target.")
 
 def gauss_amp(x,y_0,x_center,w,area):
     y = y_0+area*np.exp((-((x-x_center)**2))/(2*w**2))
@@ -71,9 +94,18 @@ def sigmodial(x,y_max,center,slope):
     y =  y_max / (1 + np.exp((x - center) / slope))
     return y
 
-def sigmodial_x_err_prop(x,y_max,center,slope, x_err):
-    y_err = -((y_max * np.exp((x - center) / slope)) / (slope*(1 + np.exp((x - center) / slope))**2))
+def sigmodial_for_odr(B, x):
+    y_max, center, slope = B
+    return y_max / (1 + np.exp((x - center) / slope))
 
+
+def sigmodial_err_prop(x, y_max, center ,slope, x_err = 0, y_max_err = 0, center_err = 0, slope_err = 0):
+    y_err = np.sqrt(
+        (x_err * (y_max * np.exp((x - center) / slope)) / (slope * (1 + np.exp((x - center) / slope))**2))**2 +
+        (center_err * (y_max * np.exp((x - center) / slope)) / (slope * (1 + np.exp((x - center) / slope))**2))**2 +
+        (slope_err * (y_max * (x - center) * np.exp((x - center) / slope)) / ((slope**2) * (1 + np.exp((x - center) / slope))**2))**2 +
+        (y_max_err * (1 / (1 + np.exp((x - center) / slope))))**2
+        )
     return y_err
 
 # %%Main Function for VS fitting
@@ -121,7 +153,7 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
 
     # Normalize Signal (y) to highest value
     signal_data_normalized = signal_data/max(signal_data)
-
+    
     try:
         # fit TS
         valid_fit_used_values = ["double_sigmoid", "Gauss"]
@@ -186,7 +218,7 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
             raise ValueError(f"Invalid value for fit_used: {fit_used}. Choose from {valid_fit_used_values}")
 
     except (RuntimeError, RuntimeWarning, ValueError) as e:
-        raise RuntimeError("fit not possible") from e
+        raise type(e)(f"fit not possible: {str(e)}").with_traceback(e.__traceback__)
     
     #plot VS
     if plot_vs == True:
@@ -200,6 +232,7 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
         if convert_to == "Volt":
             plt.xlabel('$U$ [$V$]')
         plt.title(plot_title)
+    
     #output vs_result
     return vs_result, vs_result_r2, parameters
 
@@ -207,16 +240,39 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
 
 #Input vs_result and CalResult Data and Names for Calibration compounds
 #fit parameters in order: y_max, center, slope
-def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=False, converted_to="Volt", low_bounds_input = (0,-np.inf,-np.inf), up_bounds_input = (np.inf,np.inf,0)):
+def generate_calibration_curve(cal_vs_values, cal_sens_values, cal_vs_err = None, cal_sens_err = None, plot_cal_curve=False, converted_to="Volt",fitter_used ='curve_fit', low_bounds_input = (0,-np.inf,-np.inf), up_bounds_input = (np.inf,np.inf,0)):
     #set boundary conditions 
     low_bounds = low_bounds_input
     up_bounds = up_bounds_input
     #perform Sigm fit
-    parameters, covariance = curve_fit(sigmodial, cal_vs_values, cal_sens_values, maxfev=10000, bounds= (low_bounds,up_bounds))
-    #unpack parameters
-    fit_y_max, fit_center, fit_slope = parameters
-    #calculate fit curve
-    fit_sens_data = sigmodial(cal_vs_values, fit_y_max, fit_center, fit_slope)
+    # with curve fit linear regression
+    if fitter_used == 'curve_fit':
+        parameters, covariance = curve_fit(sigmodial, cal_vs_values, cal_sens_values, maxfev=10000, bounds= (low_bounds,up_bounds))
+        parameters_errors = np.sqrt(np.diag(covariance))
+        #unpack parameters
+        fit_y_max, fit_center, fit_slope = parameters
+        #calculate fit curve
+        fit_sens_data = sigmodial(cal_vs_values, fit_y_max, fit_center, fit_slope)
+        
+    # with odr Orthogonal distance regression to also accoutn for errors
+    elif fitter_used =='odr':
+        # Create a model for ODR
+        sigmodial_model = odr.Model(sigmodial_for_odr)
+        # Set up the data with errors
+        data = odr.RealData(cal_vs_values, cal_sens_values, sx=cal_vs_err, sy=cal_sens_err)
+        # Initial parameter guesses: [y_max, center, slope]
+        initial_params = [np.max(cal_sens_values), np.median(cal_vs_values), -10.0]
+        # Run the ODR fitting
+        odr_instance = odr.ODR(data, sigmodial_model, beta0=initial_params)
+        output = odr_instance.run()
+        # Get fitted parameters
+        parameters = output.beta
+        parameters_errors = output.sd_beta  # Standard deviation (uncertainties)
+        #unpack parameters
+        fit_y_max, fit_center, fit_slope = parameters
+        #calculate fit curve
+        fit_sens_data = sigmodial(cal_vs_values, fit_y_max, fit_center, fit_slope)
+        
     #r2 value
     #r-squared value between data and fit curve
     cal_curve_r2 = r2_score(cal_sens_values,fit_sens_data)
@@ -227,7 +283,20 @@ def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=Fa
         Plotfit_sens_data = sigmodial(plot_fit_vs_values,fit_y_max, fit_center, fit_slope)
         fig, ax = plt.subplots(figsize=(5.5,3.44))
         ax.scatter(cal_vs_values, cal_sens_values, c = orange, edgecolor =  'None' ,s=60,zorder=2,label = 'cal. compounds')
-        ax.plot(plot_fit_vs_values, Plotfit_sens_data, label= 'sigm. fit (r$^{2}=$'+str(round(cal_curve_r2,3))+')',color =purple, linewidth = 1, zorder=3)
+        ax.plot(plot_fit_vs_values, Plotfit_sens_data, label= 'sigm. fit (r$^{2}=$'+str(round(cal_curve_r2,3))+')',color =purple_dark, linewidth = 1, zorder=3)
+
+        # use fit parameter errors to generat error corridor
+        y_max_upper = parameters[0] + parameters_errors[0]
+        center_upper = parameters[1] - parameters_errors[1]
+        slope_upper = parameters[2] - parameters_errors[2]
+        ydata_fit_upper = sigmodial(plot_fit_vs_values, y_max_upper, center_upper, slope_upper)
+        plt.plot(plot_fit_vs_values, ydata_fit_upper, color = purple, linewidth = 1, zorder=3, label = "fit error")
+        y_max_lower = parameters[0] - parameters_errors[0]
+        center_lower = parameters[1] + parameters_errors[1]
+        slope_lower = parameters[2] + parameters_errors[2]
+        ydata_fit_lower = sigmodial(plot_fit_vs_values, y_max_lower, center_lower, slope_lower)
+        plt.plot(plot_fit_vs_values, ydata_fit_lower, color = purple, linewidth = 1, zorder=3)
+        
         standard_plot_parameters(ax)
         plt.ylabel('Sensitivity')
         if converted_to == "Volt":
@@ -235,4 +304,4 @@ def generate_calibration_curve(cal_vs_values, cal_sens_values, plot_cal_curve=Fa
         plt.rcParams['legend.fontsize'] = 10
         plt.legend(loc='best',handlelength=1)
     #output fit parameters 
-    return parameters, cal_curve_r2 
+    return parameters, parameters_errors, cal_curve_r2 
