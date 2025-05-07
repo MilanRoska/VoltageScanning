@@ -6,6 +6,8 @@ Created on Fri Jan  5 14:12:30 2024
 """
 
 #%%packages
+import sys
+sys.path.append('C:/Users/exp.voc/PythonRepo/')
 import numpy as np
 from scipy.optimize import curve_fit
 from sklearn.metrics import r2_score
