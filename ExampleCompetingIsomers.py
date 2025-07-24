@@ -89,7 +89,7 @@ total_signal_data = isomer1_signal_data + isomer2_signal_data
 ax.plot(voltage_data, total_signal_data, color = orange, linewidth = 5, label='total signal', zorder = 1)
 
 # calcualte dV50 
-vs_result, vs_result_r2, parameters = vs_fit(total_signal_data, voltage_data, convert_to="Volt", acquisition_freq=1, tunning_freq=None, StepSize=1, init_fit_parameters=None, max_voltage=voltage_max, fit_used="double_sigmoid", max_fit_iterations=5000, inversion_method="root_scalar", plot_vs=False, plot_title = 'formula not specified')
+vs_result, vs_result_r2, parameters, parameters_err = vs_fit(total_signal_data, voltage_data, convert_to="Volt", acquisition_freq=1, tunning_freq=None, StepSize=1, init_fit_parameters=None, max_voltage=voltage_max, fit_used="double_sigmoid", max_fit_iterations=5000, inversion_method="root_scalar", plot_vs=False, plot_title = 'formula not specified')
 ax.scatter(vs_result, max(total_signal_data)/2, color = orange, edgecolor = orange_dark, s = 200, zorder = 2)
 plt.xlim((1,120))
 plt.ylim((-1000,37000))
