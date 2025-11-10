@@ -5,9 +5,8 @@ Created on Fri Jan  5 14:12:30 2024
 @author: m.roska
 """
 
-#%%packages
+# %%packages
 import sys
-sys.path.append('C:/Users/exp.voc/PythonRepo/')
 import numpy as np
 from scipy.optimize import curve_fit
 from scipy import odr
@@ -15,7 +14,12 @@ from sklearn.metrics import r2_score
 from scipy.optimize import root_scalar
 from scipy.optimize import newton
 import matplotlib.pyplot as plt
-#%%custom colors
+from scipy.signal import savgol_filter
+
+sys.path.append('C:/Users/exp.voc/PythonRepo/')
+
+
+# %%custom colors
 orange = (244/255 , 153/255 , 62/255 , 100/100)
 orange_light = (252/255 , 230/255 , 207/255 , 100/100)
 orange_dark = (145/255 , 77/255 , 8/255 , 100/100)
@@ -25,7 +29,8 @@ purple_light = (252/255 , 240/255 , 254/255 , 100/100)
 purple_dark = (122/255 , 8/255 , 145/255 , 100/100)
 purple_very_dark = (61/255 , 4/255 , 73/255 , 100/100)
 
-#%%Support Fnctions
+
+# %%Support Fnctions
 
 
 def standard_plot_parameters(ax):
@@ -35,7 +40,7 @@ def standard_plot_parameters(ax):
     plt.rcParams['xtick.labelsize'] = 16
     plt.rcParams['ytick.labelsize'] = 16
     plt.rcParams['legend.fontsize'] = 12
-    plt.legend(loc='upper right',handlelength=1, scatterpoints=1)
+    plt.legend(loc='upper right', handlelength=1, scatterpoints=1)
     ax.tick_params(axis='both', direction='in', length=5, width=1)
     ax.tick_params(which='major', size=5)  # Major ticks
     ax.tick_params(which='minor', size=5)   # Minor ticks
@@ -112,6 +117,21 @@ def sigmodial(x ,y_max, center, slope):
     return y
 
 
+def sigmodial_gaussian_conv(x ,y_max_sigm, center_sigm, slope_sigm, y_max_gauss, area_gauss, center_gauss, width_gauss):
+    y = y_max_sigm / (1 + np.exp((x - center_sigm) / slope_sigm)) + y_max_gauss + area_gauss *np.exp((-((x- center_gauss)**2))/(2*width_gauss**2))
+    return y
+
+
+def box_lucas(x, a, b):
+    y = (a/(a-b))*(np.exp(-a*x) - np.exp(-b*x))
+    return y
+
+
+def box_lucas_inv(y, a, b):
+    x = 2 * (np.log(a) - np.log(b)) / (a-b)
+    return x
+
+
 def sigmodial_for_odr(B, x):
     y_max, center, slope = B
     return y_max / (1 + np.exp((x - center) / slope))
@@ -126,15 +146,33 @@ def sigmodial_err_prop(x, y_max, center, slope, x_err=0, y_max_err=0, center_err
         )
     return y_err
 
-# %%Main Function for VS fitting
+# %% main Function for VS fitting
 
+# vs fit function generating a dV50 value and an error
+def vs_fit(signal_data,
+           timing_data,
+           convert_to="Volt",
+           acquisition_freq=10,
+           tunning_freq=None,
+           StepSize=2,
+           init_fit_parameters=None,
+           max_voltage=100,
+           fit_used="double_sigmoid",
+           max_fit_iterations=5000,
+           low_bounds=(0, 0, 0, 0, 0),
+           up_bounds=(np.inf, np.inf, np.inf, np.inf, np.inf),
+           plot_vs=False,
+           plot_title='formula not specified',
+           propagate_Error=False
+           ):
 
-def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tunning_freq=None, StepSize=2, init_fit_parameters=None, max_voltage=100, fit_used="double_sigmoid", max_fit_iterations=5000, low_bounds=(0, 0, 0, 0, 0), up_bounds=(np.inf, np.inf, np.inf, np.inf, np.inf), inversion_method="root_scalar", plot_vs=False, plot_title='formula not specified', propagate_Error=False):
-    # Set default value for tunning_freq
+    # Set default value for tunning_freq if not specified otherwise
     if tunning_freq is None:
         tunning_freq = acquisition_freq
+    # failsafe for when tuning was faster then acquisition. This should be avoided
     elif tunning_freq > acquisition_freq:
         raise ValueError("VS Tunning Frequency faster than Acquisition Frequency.")
+    # pass if tunning freq is defined
     else:
         pass
 
@@ -152,7 +190,7 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
     slowness_correction_factor = tunning_freq/acquisition_freq
 
     # check if Nr of Datapoints matches Expected from VS param -> error
-    expected_data_points = max_voltage/StepSize/slowness_correction_factor
+    expected_data_points = max_voltage / StepSize / slowness_correction_factor
     if expected_data_points != timing_data.shape[0]:
         print(f"More Data Points than expected from VS setting. {expected_data_points} expected, {timing_data.shape[0]} found")
 
@@ -170,89 +208,245 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
     else:
         raise ValueError(f"Invalid value for convert_to: {convert_to}. Choose from {valid_convert_to_values}")
 
-    # Normalize Signal (y) to highest value
-    signal_data_normalized = signal_data/max(signal_data)
+    # Normalize Signal (y) to start value value
+    signal_data_normalized = signal_data / signal_data[0]
 
     try:
-        # fit TS
-        valid_fit_used_values = ["double_sigmoid", "Gauss"]
+        # fit Voltage scanning curve
+        valid_fit_used_values = ["double_sigmoid", "Gauss", "closest_datapoint", "closest_datapoint"]
+
         if fit_used == "double_sigmoid":
             # perform double_sigmoid fit
-            parameters, covariance = curve_fit(double_sigmoid, timing_dataConverted, signal_data_normalized, p0=init_fit_parameters, maxfev=max_fit_iterations, bounds= (low_bounds, up_bounds))
+            parameters, covariance = curve_fit(double_sigmoid,
+                                               timing_dataConverted,
+                                               signal_data_normalized,
+                                               p0=init_fit_parameters,
+                                               maxfev=max_fit_iterations,
+                                               bounds=(low_bounds, up_bounds)
+                                               )
             # parameter errros
             parameters_errors = np.sqrt(np.diag(covariance))
             # unpack parameters
             fit_y_max, fit_fall_center, fit_fall_slope, fit_rise_center, fit_rise_slope = parameters
             # calculate fit curve
-            fit_signal_data = double_sigmoid(timing_dataConverted, fit_y_max, fit_fall_center, fit_fall_slope, fit_rise_center, fit_rise_slope)            
-            # r2 value
+            fit_signal_data = double_sigmoid(timing_dataConverted,
+                                             fit_y_max,
+                                             fit_fall_center,
+                                             fit_fall_slope,
+                                             fit_rise_center,
+                                             fit_rise_slope
+                                             )
             # r-squared value between data and fit curve
             r2 = r2_score(signal_data_normalized, fit_signal_data)
             # get start value from signal_data
-            int_start = double_sigmoid(0, fit_y_max, fit_fall_center, fit_fall_slope, fit_rise_center, fit_rise_slope)
+            int_start = double_sigmoid(0,
+                                       fit_y_max,
+                                       fit_fall_center,
+                                       fit_fall_slope,
+                                       fit_rise_center,
+                                       fit_rise_slope
+                                       )
             # get Intensity at at half of int_start
             int_half = int_start/2
-            # get Volt_half from int_half value using minimized scalar residual method
-            if inversion_method == "root_scalar":
-                # Perform the optimization to find the best x value
-                volt_half = double_sigmoid_find_root_scalar(int_half, fit_y_max, fit_fall_center, fit_fall_slope, fit_rise_center, fit_rise_slope)
-                # calcualte an error if set active
-                if propagate_Error == True:
-                    # unpack parameter errors
-                    fit_y_max_err, fit_fall_center_err, fit_fall_slope_err, fit_rise_center_err, fit_rise_slope_err = parameters_errors
-                    # calcualte int_half error for volt_half
-                    # calcuale upper volt error and lower volt error and take the maximum of both
-                    int_half_err = double_sigmoid_err(volt_half, fit_y_max, fit_fall_center, fit_fall_slope, fit_rise_center, fit_rise_slope, 
-                                             fit_y_max_err, fit_fall_center_err, fit_fall_slope_err, fit_rise_center_err, fit_rise_slope_err)
-                    volt_half_err_upper = double_sigmoid_find_root_scalar(int_half+int_half_err, fit_y_max, fit_fall_center, fit_fall_slope, fit_rise_center, fit_rise_slope)
-                    volt_half_err_lower = double_sigmoid_find_root_scalar(int_half-int_half_err, fit_y_max, fit_fall_center, fit_fall_slope, fit_rise_center, fit_rise_slope)
-                    volt_half_err = abs(volt_half-max(volt_half_err_upper, volt_half_err_lower))
-                    
-                    vs_result_err = volt_half_err
-                else:
-                    vs_result_err = None
-                    
-            vs_result = volt_half
-            # alternative inversion method that does not need root scalar analysis (currently slower in tests)
-            if inversion_method == "min_of_abs_of_shift_down":
-                # shift fit so that dV50 leis on x crossing, take absolute of that, take minimum of that
-                # Step 2: Subtract the global offset
-                fit_signal_data_offset = fit_signal_data - int_half
-                # Step 3: Take the absolute value
-                fit_signal_data_abs = np.abs(fit_signal_data_offset)
-                # Step 4: Filter data where x > 0
-                positive_x_indices = np.where(timing_dataConverted > 0)
-                if len(positive_x_indices[0]) == 0:
-                    return None  # No positive y-values found
-                # Step 5: Get the x-value where y is the minimum (for y > 0)
-                min_index = positive_x_indices[0][np.argmin(fit_signal_data_abs[positive_x_indices])]
-                min_x = timing_dataConverted[min_index]
-                vs_result = min_x
+
+            # Perform the optimization to find the best x value
+            volt_half = double_sigmoid_find_root_scalar(int_half,
+                                                        fit_y_max,
+                                                        fit_fall_center,
+                                                        fit_fall_slope,
+                                                        fit_rise_center,
+                                                        fit_rise_slope
+                                                        )
+            # calcualte an error if set active
+            if propagate_Error:
+                # unpack parameter errors
+                fit_y_max_err, fit_fall_center_err, fit_fall_slope_err, fit_rise_center_err, fit_rise_slope_err = parameters_errors
+                # calcualte int_half error for volt_half
+                # calcuale upper volt error and lower volt error and take the maximum of both
+                int_half_err = double_sigmoid_err(volt_half,
+                                                  fit_y_max,
+                                                  fit_fall_center,
+                                                  fit_fall_slope,
+                                                  fit_rise_center,
+                                                  fit_rise_slope,
+                                                  fit_y_max_err,
+                                                  fit_fall_center_err,
+                                                  fit_fall_slope_err,
+                                                  fit_rise_center_err,
+                                                  fit_rise_slope_err
+                                                  )
+                volt_half_err_upper = double_sigmoid_find_root_scalar(int_half+int_half_err,
+                                                                      fit_y_max,
+                                                                      fit_fall_center,
+                                                                      fit_fall_slope,
+                                                                      fit_rise_center,
+                                                                      fit_rise_slope
+                                                                      )
+                volt_half_err_lower = double_sigmoid_find_root_scalar(int_half-int_half_err,
+                                                                      fit_y_max,
+                                                                      fit_fall_center,
+                                                                      fit_fall_slope,
+                                                                      fit_rise_center,
+                                                                      fit_rise_slope
+                                                                      )
+                volt_half_err = abs(volt_half-max(volt_half_err_upper, volt_half_err_lower))
+                vs_result_err = volt_half_err
+            else:
                 vs_result_err = None
 
+            # set vs results and r2
+            vs_result = volt_half
             vs_result_r2 = r2
+  
         elif fit_used == "Gauss":
-            # set boundary conditions
-            low_bounds = (-np.inf, -np.inf, -np.inf, -np.inf)
-            up_bounds = (np.inf, np.inf, np.inf, np.inf)
-            # perform double_sigmoid fit
-            parameters, covariance = curve_fit(gauss_amp, timing_dataConverted, signal_data_normalized, p0=init_fit_parameters, maxfev=max_fit_iterations, bounds=(low_bounds, up_bounds))
+            # overwrite boundary conditions
+            low_bounds = (-np.inf,
+                          -np.inf,
+                          -np.inf,
+                          -np.inf
+                          )
+            up_bounds = (np.inf,
+                         np.inf,
+                         np.inf,
+                         np.inf
+                         )
+            # perform gauss fit
+            parameters, covariance = curve_fit(gauss_amp,
+                                               timing_dataConverted,
+                                               signal_data_normalized,
+                                               p0=init_fit_parameters,
+                                               maxfev=max_fit_iterations,
+                                               bounds=(low_bounds, up_bounds)
+                                               )
             # unpack parameters
             fit_y_0, fit_x_center, fit_w, fit_area = parameters
             # calculate fit curve
-            fit_signal_data = gauss_amp(timing_dataConverted, fit_y_0, fit_x_center, fit_w, fit_area)
+            fit_signal_data = gauss_amp(timing_dataConverted,
+                                        fit_y_0, fit_x_center,
+                                        fit_w,
+                                        fit_area
+                                        )
+            # r2 value
+            # r-squared value between data and fit curve
+            r2 = r2_score(signal_data_normalized,
+                          fit_signal_data
+                          )
+            # get start value from signal_data
+            int_start = gauss_amp(0,
+                                  fit_y_0,
+                                  fit_x_center,
+                                  fit_w,
+                                  fit_area
+                                  )
+            # get Intensity at at half of int_start
+            int_half = int_start/2
+            # get ekin_half from int_half value using minimized scalar residual method
+            ekin_half = gauss_amp_inv(int_half,
+                                      fit_y_0,
+                                      fit_x_center,
+                                      fit_w,
+                                      fit_area
+                                      )
+
+            if propagate_Error:
+                print('Errorproapgation not yet implemented for Gauss fit')
+
+            vs_result = ekin_half
+            vs_result_err = None
+            vs_result_r2 = r2
+           
+        # experimental fit curve to adress gauss rises in the slope
+        elif fit_used == "sigmodial_gaussian_conv":
+            # set boundary conditions
+            low_bounds = (0,
+                          0,
+                          -100,
+                          0,
+                          0,
+                          -200,
+                          0)
+            up_bounds = (2,
+                         200,
+                         0,
+                         10,
+                         np.inf,
+                         200,
+                         np.inf)
+            # perform double_sigmoid fit
+            parameters, covariance = curve_fit(sigmodial_gaussian_conv,
+                                               timing_dataConverted,
+                                               signal_data_normalized,
+                                               p0=init_fit_parameters,
+                                               maxfev=max_fit_iterations,
+                                               bounds=(low_bounds, up_bounds)
+                                               )
+            # unpack parameters
+            y_max_sigm, center_sigm, slope_sigm, y_max_gauss, area_gauss, center_gauss, width_gauss = parameters
+            # calculate fit curve
+            fit_signal_data = sigmodial_gaussian_conv(timing_dataConverted,
+                                                      y_max_sigm,
+                                                      center_sigm,
+                                                      slope_sigm,
+                                                      y_max_gauss,
+                                                      area_gauss,
+                                                      center_gauss,
+                                                      width_gauss
+                                                      )
             # r2 value
             # r-squared value between data and fit curve
             r2 = r2_score(signal_data_normalized, fit_signal_data)
             # get start value from signal_data
-            int_start = gauss_amp(0, fit_y_0, fit_x_center, fit_w, fit_area)
+            int_start = sigmodial_gaussian_conv(0,
+                                                y_max_sigm,
+                                                center_sigm,
+                                                slope_sigm,
+                                                y_max_gauss,
+                                                area_gauss,
+                                                center_gauss,
+                                                width_gauss
+                                                )
             # get Intensity at at half of int_start
             int_half = int_start/2
+            
+            # !!!!!!!!!!!!!!!!!! impelemnt inversion fucntion
             # get ekin_half from int_half value using minimized scalar residual method
-            ekin_half = gauss_amp_inv(int_half, fit_y_0, fit_x_center, fit_w, fit_area)
+            ekin_half = sigmodial_gaussian_conv_inv(int_half,
+                                                    y_max_sigm,
+                                                    center_sigm,
+                                                    slope_sigm,
+                                                    y_max_gauss,
+                                                    area_gauss,
+                                                    center_gauss,
+                                                    width_gauss
+                                                    )
             vs_result = ekin_half
             vs_result_err = None
             vs_result_r2 = r2
+            
+        elif fit_used == "closest_datapoint":
+            # smoothen data
+            # set savgol window to 40% of length
+            savgol_window = round(0.4 * len(signal_data_normalized),0)
+            # apply savgol
+            signal_data_normalized_smooth = savgol_filter(signal_data_normalized,
+                                                          savgol_window,
+                                                          2,mode='nearest')
+            # get start value from signal_data
+            int_start = signal_data_normalized_smooth[0]
+            # get Intensity at at half of int_start
+            int_half = int_start/2
+            # Find the index where the difference is minimal
+            closest_idx = np.argmin(np.abs(signal_data_normalized_smooth - int_half))
+            # Use that index to get the corresponding timing_dataConverted value
+            ekin_half = timing_dataConverted[closest_idx]
+            # set fit signal to be the same as signal itself, sicne we are not fitting
+            fit_signal_data = signal_data_normalized_smooth
+
+            vs_result = ekin_half
+            vs_result_err = None
+            vs_result_r2 = -999
+            parameters = [-999,-999,-999,-999,-999]
+            
         else:
             raise ValueError(f"Invalid value for fit_used: {fit_used}. Choose from {valid_fit_used_values}")
 
@@ -262,14 +456,42 @@ def vs_fit(signal_data, timing_data, convert_to="Volt", acquisition_freq=10, tun
     # plot VS
     if plot_vs == True:
         fig, ax = plt.subplots(figsize=(5.5, 4.125))
-        ax.scatter(timing_dataConverted, signal_data_normalized, label='Data', color=orange, s=50, zorder=1)
-        ax.plot(timing_dataConverted, fit_signal_data, label='fit. (r$^{2}=$'+str(round(r2,3))+')', color=purple_very_dark, linewidth=3, zorder=2)
-        ax.scatter(0, int_start,color=purple_very_dark, label='100%', s=100, marker='H', zorder=3)
-        ax.scatter(vs_result, int_half, color=purple_very_dark, label='50% ('+convert_to+'='+str(round(vs_result, 2))+')', s=100, marker='h', zorder=3)   
+        ax.scatter(timing_dataConverted,
+                   signal_data_normalized,
+                   label='Data',
+                   color=orange,
+                   s=50,
+                   zorder=1
+                   )
+        ax.plot(timing_dataConverted,
+                fit_signal_data,
+                label='fit. (r$^{2}=$'+str(round(vs_result_r2, 3))+')',
+                color=purple_very_dark,
+                linewidth=3,
+                zorder=2
+                )
+        ax.scatter(0,
+                   int_start,
+                   color=purple_very_dark,
+                   label='100%',
+                   s=100,
+                   marker='H',
+                   zorder=3
+                   )
+        ax.scatter(vs_result,
+                   int_half,
+                   color=purple_very_dark,
+                   label='50% ('+convert_to+'='+str(round(vs_result, 2))+')',
+                   s=100,
+                   marker='h',
+                   zorder=3
+                   )
         standard_plot_parameters(ax)
+
         plt.ylabel('Intensity [AU]')
         if convert_to == "Volt":
             plt.xlabel('$U$ [$V$]')
+
         plt.title(plot_title)
 
     # output vs_result
