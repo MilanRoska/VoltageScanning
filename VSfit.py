@@ -673,7 +673,7 @@ def generate_calibration_curve(
 
         standard_plot_parameters(ax)
         ax.set_ylabel('Sensitivity')
-        ax.set_xlabel('$U$ [$V$]' if converted_to == "Volt" else converted_to)
+        ax.set_xlabel('$\Delta V_{50}$ [$V$]' if converted_to == "Volt" else converted_to)
         ax.legend(loc='best', handlelength=1)
         plt.tight_layout()
 
