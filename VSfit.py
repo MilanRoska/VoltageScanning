@@ -8,15 +8,20 @@ Created on Fri Jan  5 14:12:30 2024
 # %%packages
 
 import numpy as np
-from scipy.optimize import curve_fit
+import pandas as pd
+
+from typing import Union, Optional, Tuple
+
 from scipy import odr
-from sklearn.metrics import r2_score
+from scipy.optimize import curve_fit
 from scipy.optimize import root_scalar
 from scipy.optimize import newton
-import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
-from typing import Union, Optional, Tuple
-import pandas as pd
+
+from sklearn.metrics import r2_score
+
+import matplotlib.pyplot as plt
+
 
 # custom figure style functions for layout and colors
 from FigureStyles import standard_plot_parameters, standard_colors
