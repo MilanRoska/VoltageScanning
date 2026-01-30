@@ -50,6 +50,6 @@ It allows extraction of meaningful **VS results**, construction of **calibration
 - One example workfliw is provided in testVSfit
 - several example cases of potential artifacs in the VS analysis are provided
     - ExampleCompetingIsomers illustrates what happens if several isomers are measured at the same time
-    - ExampleSlopeDuringVS illustrates how a rising or falling signal during the VS affects the VS results
-    - ExampleTimingOffsetDuringVS illustrates how missalignment of the timing and signal data affect the VS results
+    - ExampleSlopeDuringVS illustrates how a rising or falling signal during the VS affects the VS results (in development)
+    - ExampleTimingOffsetDuringVS illustrates how missalignment of the timing and signal data affect the VS results (in development)
 ---
