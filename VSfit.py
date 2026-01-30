@@ -3,7 +3,35 @@
 Created on Fri Jan  5 14:12:30 2024
 
 @author: m.roska
+
+Core Functions for Voltage Scanning (VS) Analysis
+
+This script contains the primary functions used for analyzing voltage scanning data.
+
+# Key Functions
+
+1. **vs_fit**  
+   Designed for fitting a single voltage scanning dataset from one scan of a single compound.  
+   This function can be imported and used directly for individual analyses.  
+   For batch processing, wrap this function in a custom iteration framework.  
+   Refer to the docstring of `vs_fit` for detailed parameter descriptions and usage examples.
+
+2. **generate_calibration_curve**  
+   Builds a correlation between voltage scanning results (obtained using `vs_fit`)  
+   and provided, conventionally derived sensitivities of calibration compounds.
+   Refer to the docstring of `generate_calibration_curve` for detailed parameter descriptions and usage examples.
+
+3. **sigmoidal**  
+   Applies a fitted sigmoidal model (from the calibration curve generated before)  
+   to estimate sensitivities for uncalibrated compounds based on their VS output.
+
+# Purpose
+This module provides the analytical backbone for voltage scanning interpretation.  
+It enables both calibration-based sensitivity estimation, bridging raw 
+voltage scanning data with meaningful quantitative sensitivity values.
+
 """
+
 
 # %%packages
 
