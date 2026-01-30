@@ -16,9 +16,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # custom
-from VSfit import sigmodial, vs_fit
+from VSfit.VSfit import sigmodial, vs_fit
 # custom figure style functions for layout and colors
-from FigureStyles import standard_plot_parameters, standard_colors
+from VSfit.FigureStyles import standard_plot_parameters, standard_colors
 # import custo colors
 orange, orange_light, orange_dark, orange_very_dark, purple, purple_light, purple_dark, purple_very_dark = standard_colors()
 

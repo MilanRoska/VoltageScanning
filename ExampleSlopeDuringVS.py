@@ -13,7 +13,7 @@ Created on Mon May 19 10:32:15 2025
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from VSfit import generate_calibration_curve, sigmodial, sigmodial_err_prop, double_sigmoid, vs_fit
+from VSfit.VSfit import generate_calibration_curve, sigmodial, sigmodial_err_prop, double_sigmoid, vs_fit
 
 # %%input parameters
 
