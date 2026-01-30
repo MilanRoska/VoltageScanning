@@ -43,7 +43,7 @@ Useful as a testbed for verifying the workflow and understanding key transformat
 import numpy as np
 import matplotlib.pyplot as plt
 
-from VSfit import vs_fit, generate_calibration_curve, double_sigmoid, sigmodial
+from VSfit.VSfit import vs_fit, generate_calibration_curve, double_sigmoid, sigmodial
 
 
 # %% Generate Example VS Data with Artificial Noise
