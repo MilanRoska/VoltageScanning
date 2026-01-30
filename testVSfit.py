@@ -3,7 +3,41 @@
 Created on Wed Jan 10 15:09:12 2024
 
 @author: m.roska
+
+Example Workflow: Applying Voltage Scanning Analysis to Simulated Data
+
+This script demonstrates the full voltage scanning (VS) analysis workflow using artificial data.
+
+# Workflow Overview
+
+1. **Generate Synthetic Data**
+   - Simulates a voltage scanning signal for an unknown compound.
+   - Adds random noise to reflect realistic measurement conditions.
+   - Plots the noisy signal for visualization.
+
+2. **Apply VS Analysis**
+   - Uses the `vs_fit` function to analyze the synthetic signal.
+   - Produces a VS result representative of what would be obtained from a real compound scan.
+
+3. **Create Artificial Calibration Set**
+   - Constructs a set of hypothetical calibration compounds.
+   - Each compound is assigned a made-up sensitivity and VS result.
+   - The `generate_calibration_curve` function fits a model to correlate VS values with sensitivities.
+
+4. **Estimate Sensitivity of Unknown**
+   - Applies the calibration model to the VS result of the synthetic signal.
+   - Converts the VS result into an estimated sensitivity using the fitted correlation curve.
+
+# Purpose
+This example simulates the analysis of an unknown compound using voltage scanning,
+showing how VS results can be transformed into meaningful sensitivity estimates
+with the help of a reference calibration dataset.
+
+Useful as a testbed for verifying the workflow and understanding key transformation steps.
+
 """
+
+
 # %%
 
 import numpy as np
@@ -12,10 +46,10 @@ import matplotlib.pyplot as plt
 from VSfit import vs_fit, generate_calibration_curve, double_sigmoid, sigmodial
 
 
-# %% 🎛️ Generate Example VS Data with Artificial Noise
+# %% Generate Example VS Data with Artificial Noise
 
 # Simulated timing data (0–120 in 2 V steps)
-timing_data = np.linspace(0, 120, int(120/2) + 1)
+timing_data = np.linspace(0, 120, 60 + 1)
 
 # Parameters for a synthetic double sigmoid curve
 y_init = 1
@@ -43,7 +77,7 @@ plt.tight_layout()
 plt.show()
 
 
-# %% 🧪 Run VS Fit to Estimate VS Result
+# %% Run VS Fit to Estimate VS Result
 
 signal_data = y_noisy
 
@@ -57,7 +91,7 @@ vs_result, vs_result_err, vs_result_r2, fit_params = vs_fit(
 )
 
 
-# %% 📈 Generate Calibration Curve Using Known Standards
+# %% Generate Calibration Curve Using Known Standards
 
 # Example calibration data (sensitivity vs dV50)
 # artificial pairs of dV50 values and calibration sensitivities
@@ -72,7 +106,7 @@ parameters, param_errors, cal_r2 = generate_calibration_curve(
 )
 
 
-# %% 🔁 Predict Sensitivity of Unknown Using Fitted Calibration
+# %% Predict Sensitivity of Unknown Using Fitted Calibration
 
 fit_y_max, fit_center, fit_slope = parameters
 estimated_sensitivity = sigmodial(vs_result, fit_y_max, fit_center, fit_slope)
