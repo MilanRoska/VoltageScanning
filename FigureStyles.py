@@ -3,6 +3,11 @@
 Created on Thu Jan 29 13:53:11 2026
 
 @author: m.roska
+
+Matplotlib style parameters and my custom colors.
+Because who doesnt want custom colors?!
+Arent they pretty? :)
+
 """
 
 # %% packages
