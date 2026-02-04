@@ -52,7 +52,7 @@ import matplotlib.pyplot as plt
 
 
 # custom figure style functions for layout and colors
-from VSfit.FigureStyles import standard_plot_parameters, standard_colors
+from VoltageScanning.VSfit.FigureStyles import standard_plot_parameters, standard_colors
 # import custo colors
 orange, orange_light, orange_dark, orange_very_dark, purple, purple_light, purple_dark, purple_very_dark = standard_colors()
 
