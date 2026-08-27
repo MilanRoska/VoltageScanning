@@ -3,7 +3,9 @@
 VotlageScanning is a Python package for analyzing Voltage Scanning (VS) datasets from Chemical Ionization Mass Spectrometry (CIMS) measurements.  
 It allows extraction of meaningful **VS results**, construction of **calibration curves**, and **estimation of compound sensitivities**, including for **uncalibrated compounds**.
 
-> 💡 VotlageScanning provides a structured workflow to derive sensitivities based on collision induced dissociation signal decay — enabling quantification even when no direct calibration exists.
+> 💡 VotlageScanning provides a structured workflow to derive sensitivities based on collision induced dissociation signal decay — enabling quantification even when no direct calibration exists. 
+
+> For citation and more details on the method please refer to: https://doi.org/10.1021/acs.est.6c04149
 
 ---
 
